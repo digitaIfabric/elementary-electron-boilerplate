@@ -19,10 +19,13 @@ ipcMain.on('async-message', (_, messageData: MessageData) => audioEngine.send(me
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1024,
-    height: 768,
+    width: 450,
+    height: 450,
+    x: 0,
+    y: 0,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      devTools: false
     }
   });
 

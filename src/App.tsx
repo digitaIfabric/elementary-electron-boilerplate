@@ -1,64 +1,98 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import './App.css';
 
-function App() {
-  const [isMakingNoise, setIsMakingNoise] = useState(false);
-  const [frequency, setFrequency] = useState<string | null>(null);
+const initialGain = 0.5;
+const maxGainValue = 1;
+
+function App(this: any) {
+  const [gain, setGain] = useState<number | null>(null);
 
   const makeNoise = useCallback(() => {
-    if (!isMakingNoise) {
-      setIsMakingNoise(true);
       (window as any).electron.sendMessage({
         type: 'emit-sound',
         value: {
-          gain: 1,
-          frequency: 440
+          gain: initialGain
         }
       });
-    }
-  }, [isMakingNoise]);
+      document.querySelector('output')!.innerHTML = String(initialGain);
+  }, []);
 
-  const stopNoise = useCallback(() => {
-    if (isMakingNoise) {
+  const stopSound = useCallback(() => {
       (window as any).electron.sendMessage({
-        type: 'stop-sound'
+        type: 'stop-sound',
+        value: {
+          gain: 0
+        },
       });
-      setIsMakingNoise(false);
+      document.querySelector('output')!.innerHTML = '0';
+  }, []);
+
+  const maxGain = useCallback(() => {
+    (window as any).electron.sendMessage({
+      type: 'max-gain',
+      value: {
+        gain: maxGainValue
+      },
+    });
+    document.querySelector('output')!.innerHTML = String(maxGainValue);
+  }, []);
+  
+  const gainVolume = useCallback(() => {
+    const i = document.querySelector('input')!;
+    let step = 0.1;
+    if (Number(i.value) < 0.2){
+      step = 0.01;
     }
-  }, [isMakingNoise]);
+    i.setAttribute('step', String(step));
+    setGain(Number(i.value));
+    (window as any).electron.sendMessage({
+      type: 'gain-volume',
+      value: {
+        gain: Number(i.value)
+      },
+    });
+    document.querySelector('output')!.innerHTML = i.value;
+  }, [setGain]);
 
   useEffect(() => {
-    function handleKeydown(e: KeyboardEvent) {
-      switch (e.key) {
-        case 'a':
-          makeNoise();
-          break;
-      }
-    }
+    document.querySelector('input')!.focus();
 
-    document.addEventListener('mouseup', stopNoise);
-    document.addEventListener('keyup', stopNoise);
-    document.addEventListener('keydown', handleKeydown);
+    document.getElementById('muteButton')!
+      .addEventListener('click', stopSound);
+
     return () => {
-      document.removeEventListener('mouseup', stopNoise);
-      document.removeEventListener('keyup', stopNoise);
-      document.removeEventListener('keydown', handleKeydown);
+      document.removeEventListener('click', stopSound);
     };
-  }, [stopNoise, makeNoise]);
+  }, [stopSound, maxGain, makeNoise, gainVolume]);
+
+  function handleKeypress(event: React.KeyboardEvent<HTMLInputElement>) {
+      if (event.key === 'a') {
+        makeNoise();
+      } else if (event.key === 's'){
+        stopSound();
+      } else if (event.key === 'w'){
+        maxGain();
+      } else if (event.key === 'ArrowUp'){
+        gainVolume();
+      } else if (event.key === 'ArrowDown'){
+        gainVolume();
+      }
+   }
 
   useEffect(() => {
-    (window as any).electron.onUpdate((e: unknown, messageData: any) => {
+    (window as any).electron.onUpdate((_e: unknown, messageData: any) => {
       if (messageData.type === 'update') {
-        setFrequency(messageData.value.frequency);
+        setGain(messageData.value.gain);
       }
     });
-  }, []);
+  }, [gainVolume]);
+
   return (
-    <div className="App">
-      <h1>elementary-electron-typescript-react</h1>
-      <p>{'Click on the following button or press "A" on your keyboard to emit a tone'}</p>
-      <button onMouseDown={makeNoise}>Noise me !</button>
-      <p id="tone">{frequency ? `${frequency}hz` : 'No Tone Playing'}</p>
+    <div className='App'>
+      <h1>elementary-volume</h1>
+      <input autoFocus id='gainVolume2' min='0' max='1' step='0.1' value={String(gain)} type='range' onKeyPress={event => handleKeypress(event)} onChange={gainVolume}/>
+      <p><output>{initialGain}</output></p>
+      <button id='muteButton' onClick={stopSound}>MUTE</button>
     </div>
   );
 }
